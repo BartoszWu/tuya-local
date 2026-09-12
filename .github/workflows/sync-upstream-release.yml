@@ -1,0 +1,110 @@
+name: Sync upstream release
+
+on:
+  schedule:
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: write
+  issues: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout fork
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Configure Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+      - name: Find latest upstream release
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="$(gh api repos/make-all/tuya-local/releases/latest --jq '.tag_name')"
+          echo "Latest upstream release: $TAG"
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+
+      - name: Fetch upstream release
+        id: check
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          git remote add upstream https://github.com/make-all/tuya-local.git
+          git fetch upstream "refs/tags/$TAG"
+
+          UPSTREAM_SHA="$(git rev-list -n 1 FETCH_HEAD)"
+          echo "sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
+
+          if git merge-base --is-ancestor "$UPSTREAM_SHA" origin/main; then
+            echo "already_synced=true" >> "$GITHUB_OUTPUT"
+            echo "$TAG is already included in main."
+          else
+            echo "already_synced=false" >> "$GITHUB_OUTPUT"
+            echo "$TAG needs syncing."
+          fi
+
+      - name: Create sync branch
+        if: steps.check.outputs.already_synced == 'false'
+        id: merge
+        env:
+          TAG: ${{ steps.release.outputs.tag }}
+          UPSTREAM_SHA: ${{ steps.check.outputs.sha }}
+        run: |
+          BRANCH="sync/upstream-$TAG"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+
+          git switch -c "$BRANCH" origin/main
+
+          if ! git merge --no-ff "$UPSTREAM_SHA" -m "chore: sync upstream release $TAG"; then
+            git merge --abort
+            echo "conflict=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          echo "conflict=false" >> "$GITHUB_OUTPUT"
+          git push --force-with-lease origin "$BRANCH"
+
+      - name: Open issue on merge conflict
+        if: steps.check.outputs.already_synced == 'false' && steps.merge.outputs.conflict == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+        run: |
+          gh issue create \
+            --title "Upstream $TAG requires manual merge" \
+            --body "Automatic merge of make-all/tuya-local release $TAG conflicted with the Euroster fork. Manual review is required."
+
+      - name: Create pull request
+        if: steps.check.outputs.already_synced == 'false' && steps.merge.outputs.conflict == 'false'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.release.outputs.tag }}
+          BRANCH: ${{ steps.merge.outputs.branch }}
+        run: |
+          EXISTING="$(gh pr list \
+            --head "$BRANCH" \
+            --base main \
+            --state open \
+            --json number \
+            --jq '.[0].number // empty')"
+
+          if [ -n "$EXISTING" ]; then
+            echo "PR #$EXISTING already exists."
+            exit 0
+          fi
+
+          gh pr create \
+            --base main \
+            --head "$BRANCH" \
+            --title "Sync upstream Tuya Local $TAG" \
+            --body "Updates this fork to upstream make-all/tuya-local release **$TAG** while retaining the Euroster 4040 custom support."

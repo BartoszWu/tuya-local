@@ -16,30 +16,91 @@ entities:
             value: "off"
           - dps_val: true
             value: heat_cool
+      # Preset flags are independent of the low-nibble HVAC action.
       - id: 103
+        type: base64
+        name: preset_mode
+        optional: true
+        mask: "500000000000000000000000000000000000"
+        mapping:
+          - dps_val: 0
+            value: program
+          - dps_val: 1
+            value: temporary_override
+          - dps_val: 4
+            value: hold
+          - value: null
+            hidden: true
+        write_mapping:
+          - value: program
+            when: {preset_mode: program}
+          - value: temporary_override
+            when: {preset_mode: temporary_override}
+          - value: hold
+            when: {preset_mode: hold}
+          - value: program
+            when: {preset_mode: temporary_override}
+            target: temporary_command
+            write_value: "//8="
+          - value: program
+            when: {preset_mode: hold}
+            target: hold_command
+            write_value: "//8="
+          - value: temporary_override
+            target: temporary_command
+            value_from: temperature
+          - value: hold
+            target: hold_command
+            value_from: temperature
+      # Read DP103; route writes using the reported preset.
+      - id: 108
         type: base64
         name: temperature
         optional: true
-        mask: "0000000000000000FF000000000000000000"
+        decimal_bytes: 1
         range:
           min: 5
           max: 35
-        # it is likely the F temperatures are encoded in a different place
-        #  in the masked field, so ignore temperature unit and always use C
         unit: C
+        mapping:
+          - value_mirror: reported_temperature
+            step: 0.1
+        write_mapping:
+          - when: {preset_mode: program}
+            target: temporary_command
+          - when: {preset_mode: temporary_override}
+            target: temporary_command
+          - when: {preset_mode: hold}
+            target: hold_command
+      - &hold_command
+        id: 108
+        type: base64
+        name: hold_command
+        optional: true
+        hidden: true
+        decimal_bytes: 1
+        range: {min: 5, max: 35}
+        mapping:
+          - step: 0.1
+      - &temporary_command
+        <<: *hold_command
+        id: 109
+        name: temporary_command
+      - id: 103
+        type: base64
+        name: reported_temperature
+        optional: true
+        readonly: true
+        hidden: true
+        mask: "0000000000000000FFFF0000000000000000"
+        decimal_bytes: 1
       - id: 103
         type: base64
         name: current_temperature
         optional: true
-        mask: "00000000000000000000FF00000000000000"
-        # full current temp=current_temperature + current_temperature_decimal
-      - id: 103
-        type: base64
-        name: current_temperature_decimal
-        optional: true
-        mask: "0000000000000000000000FF000000000000"
-        mapping:
-          - scale: 10
+        readonly: true
+        mask: "00000000000000000000FFFF000000000000"
+        decimal_bytes: 1
       - id: 103
         type: base64
         name: hvac_action
@@ -49,6 +110,10 @@ entities:
           - dps_val: 1
             value: preheating
           - dps_val: 5
+            value: heating
+          - dps_val: 9
+            value: idle
+          - dps_val: 13
             value: heating
           - value: idle
   - entity: select
@@ -65,10 +130,7 @@ entities:
             value: fahrenheit
 
   # HEX Value      2d 02 00 00 00 00 00 02 18 01 14 06 80 00 80 00 08 02
-  # complex encoding that can't be directly supported, so provide it
-  # hidden by default in case someone wants to handle it with helpers,
-  # templates and automation
-  # Set temperature = temperature+"Set temperature decimal"
+  # Legacy diagnostic entity; the climate now includes this fraction.
   - entity: number
     name: Set temperature decimal
     category: diagnostic
@@ -77,6 +139,7 @@ entities:
       - id: 103
         type: base64
         name: value
+        readonly: true
         optional: true
         mask: "000000000000000000FF0000000000000000"
         mapping:
@@ -117,3 +180,40 @@ entities:
         type: boolean
         name: button
         optional: true
+  - entity: button
+    name: Resume schedule
+    icon: "mdi:calendar-sync"
+    dps:
+      - id: 108
+        type: base64
+        name: button
+        optional: true
+        write_mapping:
+          - value: true
+            when: {reported_preset: program}
+          - value: true
+            when: {reported_preset: temporary_override}
+            target: temporary_command
+            write_value: "//8="
+          - value: true
+            when: {reported_preset: hold}
+            target: hold_command
+            write_value: "//8="
+      - <<: *hold_command
+      - <<: *temporary_command
+      - id: 103
+        type: base64
+        name: reported_preset
+        optional: true
+        hidden: true
+        readonly: true
+        mask: "500000000000000000000000000000000000"
+        mapping:
+          - dps_val: 0
+            value: program
+          - dps_val: 1
+            value: temporary_override
+          - dps_val: 4
+            value: hold
+          - value: null
+            hidden: true

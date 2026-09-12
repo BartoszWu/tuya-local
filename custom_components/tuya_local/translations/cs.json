@@ -297,7 +297,9 @@
                             "manual": "Manuál",
                             "program": "Program",
                             "temp_override": "Dočasné přepsání",
-                            "perm_override": "Trvalé přepsání"
+                            "perm_override": "Trvalé přepsání",
+                            "hold": "Trvalé přepsání",
+                            "temporary_override": "Dočasné přepsání"
                         }
                     }
                 }

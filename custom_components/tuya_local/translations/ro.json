@@ -297,7 +297,9 @@
                             "manual": "Manual",
                             "program": "Program",
                             "temp_override": "Suprascriere temporară",
-                            "perm_override": "Suprascriere permanentă"
+                            "perm_override": "Suprascriere permanentă",
+                            "hold": "Suprascriere permanentă",
+                            "temporary_override": "Suprascriere temporară"
                         }
                     }
                 }

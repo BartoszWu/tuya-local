@@ -297,7 +297,9 @@
                             "manual": "Manuell",
                             "program": "Program",
                             "temp_override": "Tillfällig åsidosättning",
-                            "perm_override": "Permanent åsidosättning"
+                            "perm_override": "Permanent åsidosättning",
+                            "hold": "Permanent åsidosättning",
+                            "temporary_override": "Tillfällig åsidosättning"
                         }
                     }
                 }

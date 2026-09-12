@@ -297,7 +297,9 @@
                             "manual": "Manuális",
                             "program": "Programozott",
                             "temp_override": "Ideiglenes felülbírálás",
-                            "perm_override": "Állandó felülbírálás"
+                            "perm_override": "Állandó felülbírálás",
+                            "hold": "Állandó felülbírálás",
+                            "temporary_override": "Ideiglenes felülbírálás"
                         }
                     }
                 }

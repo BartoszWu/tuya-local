@@ -297,7 +297,9 @@
                             "manual": "Manuell",
                             "program": "Program",
                             "temp_override": "Midlertidig overstyring",
-                            "perm_override": "Permanent overstyrt"
+                            "perm_override": "Permanent overstyrt",
+                            "hold": "Permanent overstyrt",
+                            "temporary_override": "Midlertidig overstyring"
                         }
                     }
                 }

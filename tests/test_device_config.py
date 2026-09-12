@@ -125,6 +125,16 @@ DP_SCHEMA = vol.Schema(
         vol.Optional("mask"): str,
         vol.Optional("endianness"): vol.In(["little"]),
         vol.Optional("mask_signed"): True,
+        vol.Optional("decimal_bytes"): vol.In([1, 2]),
+        vol.Optional("write_mapping"): [
+            {
+                vol.Optional("value"): vol.Maybe(vol.Any(str, int, float, bool)),
+                vol.Optional("when"): {str: vol.Maybe(vol.Any(str, int, float, bool))},
+                vol.Optional("target"): str,
+                vol.Exclusive("write_value", "source"): vol.Any(str, int, float, bool),
+                vol.Exclusive("value_from", "source"): str,
+            }
+        ],
     }
 )
 ENTITY_SCHEMA = vol.Schema(
@@ -476,6 +486,13 @@ def check_entity(entity, cfg, mocker):
             f"\n::error file={fname},line={line}::dp name missing from {e} in {cfg}"
         )
         extra.add(dp.name)
+        for rule in dp.write_mapping or []:
+            redirects.update(rule.get("when", {}))
+            for reference in ("target", "value_from"):
+                if reference in rule:
+                    redirects.add(rule[reference])
+            if "target" not in rule:
+                assert "value_from" not in rule and "write_value" not in rule
         mappings = dp._config.get("mapping", [])
         assert isinstance(mappings, list), (
             f"\n::error file={fname},line={line}::mapping is not a list in {cfg}; entity {e}, dp {dp.name}"

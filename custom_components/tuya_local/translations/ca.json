@@ -297,6 +297,8 @@
                             "program": "Programa",
                             "temp_override": "Substitució temporal",
                             "perm_override": "Substitució permanent",
+                            "hold": "Substitució permanent",
+                            "temporary_override": "Substitució temporal",
                             "manual": "Manual"
                         }
                     }

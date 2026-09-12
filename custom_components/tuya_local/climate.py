@@ -165,7 +165,7 @@ class TuyaLocalClimate(TuyaLocalEntity, ClimateEntity):
             if self._current_temperature_dps
             else 1
         )
-        if max(temp, current) > 1.0:
+        if max(temp, current) > 1.0 or (dp and dp.step(self._device) < 1.0):
             return PRECISION_TENTHS
         return PRECISION_WHOLE
 
@@ -238,6 +238,28 @@ class TuyaLocalClimate(TuyaLocalEntity, ClimateEntity):
 
     async def async_set_temperature(self, **kwargs):
         """Set new target temperature."""
+        preset = kwargs.get(ATTR_PRESET_MODE)
+        temperature = kwargs.get(ATTR_TEMPERATURE)
+        if (
+            preset is not None
+            and temperature is not None
+            and self._preset_mode_dps is not None
+            and self._preset_mode_dps.write_mapping is not None
+            and self._temperature_dps is not None
+        ):
+            # Route one command using the explicitly requested preset, without
+            # waiting for the device to report the preset change.
+            if not any(
+                rule.get("value") == preset and rule.get("value_from") == "temperature"
+                for rule in self._preset_mode_dps.write_mapping
+            ):
+                raise ValueError("This preset cannot be combined with a temperature")
+            settings = self._temperature_dps.get_values_to_set(
+                self._device, temperature, context={ATTR_PRESET_MODE: preset}
+            )
+            if settings:
+                await self._device.async_set_properties(settings)
+            return
         if kwargs.get(ATTR_PRESET_MODE) is not None:
             _LOGGER.info(
                 "%s setting temperature: setting preset mode to %s",

@@ -6,6 +6,7 @@ import logging
 from base64 import b64decode, b64encode
 from collections.abc import Sequence
 from datetime import datetime
+from decimal import ROUND_HALF_EVEN, Decimal
 from fnmatch import fnmatch
 from numbers import Number
 from os import scandir
@@ -501,16 +502,35 @@ class TuyaDpsConfig:
                 bit_count = mask.bit_count()
                 raw_result = to_signed(raw_result, bit_count)
 
-            return self._map_from_dps(raw_result, device)
+            return self._map_from_dps(self._decode_decimal_bytes(raw_result), device)
 
         elif mask and isinstance(bytevalue, int):
             # Handle masking for integer DPs
             scale = mask & (1 + ~mask)
             raw_result = (bytevalue & mask) // scale
-            return self._map_from_dps(raw_result, device)
+            return self._map_from_dps(self._decode_decimal_bytes(raw_result), device)
 
         else:
+            if self._config.get("decimal_bytes"):
+                raw_from_device = (
+                    self._decode_decimal_bytes(
+                        int.from_bytes(bytevalue, self.endianness)
+                    )
+                    if isinstance(bytevalue, bytes) and len(bytevalue) == 2
+                    else None
+                )
             return self._map_from_dps(raw_from_device, device)
+
+    def _decode_decimal_bytes(self, value):
+        """Decode an unsigned whole byte followed by decimal fractional digits."""
+        digits = self._config.get("decimal_bytes")
+        if not digits or value is None:
+            return value
+        whole, fraction = divmod(value, 256)
+        scale = 10**digits
+        if not 0 <= whole <= 255 or not 0 <= fraction < scale:
+            return None
+        return (whole * scale + fraction) / scale
 
     def decoded_value(self, device):
         v = self._map_from_dps(device.get_property(self.id), device)
@@ -573,7 +593,8 @@ class TuyaDpsConfig:
         if self.invalid_for(value, device):
             raise AttributeError(f"{self.name} cannot be set at this time")
         settings = self.get_values_to_set(device, value)
-        await device.async_set_properties(settings)
+        if settings:
+            await device.async_set_properties(settings)
 
     def mapping_available(self, mapping, device):
         """Determine if this mapping should be available."""
@@ -975,7 +996,47 @@ class TuyaDpsConfig:
 
         return c_match
 
-    def get_values_to_set(self, device, value, pending_map=None):
+    @property
+    def write_mapping(self):
+        """Optional command routing, independent of reported-value mapping."""
+        return self._config.get("write_mapping")
+
+    def _write_command(self, device, value, pending_map, context, visited):
+        def read(name):
+            if name in context:
+                return context[name]
+            dp = self._entity.find_dps(name)
+            if dp is None:
+                raise ValueError(f"Unknown command attribute: {name}")
+            return dp.get_value(device)
+
+        for rule in self.write_mapping:
+            if "value" in rule and rule["value"] != value:
+                continue
+            if any(
+                read(name) != expected
+                for name, expected in rule.get("when", {}).items()
+            ):
+                continue
+            target = rule.get("target")
+            if target is None:
+                return {}
+            dp = self._entity.find_dps(target)
+            if dp is None or dp.readonly:
+                raise ValueError(f"Invalid command target: {target}")
+            output = rule.get("write_value", value)
+            if "value_from" in rule:
+                output = read(rule["value_from"])
+            if output is None:
+                raise ValueError(f"Missing command value for {self.name}")
+            return dp.get_values_to_set(
+                device, output, pending_map, context=context, _visited=visited
+            )
+        raise ValueError(f"No safe write mapping for {self.name}")
+
+    def get_values_to_set(
+        self, device, value, pending_map=None, *, context=None, _visited=()
+    ):
         """Return the dps values that would be set when setting to value"""
         result = value
         dps_map = {}
@@ -985,6 +1046,17 @@ class TuyaDpsConfig:
 
         if self.readonly:
             return dps_map
+
+        if self.write_mapping is not None:
+            if self.name in _visited:
+                raise ValueError("Cyclic write mapping")
+            return self._write_command(
+                device, value, pending_map, context or {}, (*_visited, self.name)
+            )
+
+        if self._config.get("decimal_bytes") and isinstance(value, Number):
+            if not Decimal(str(value)).is_finite():
+                raise ValueError(f"{self.name} ({value}) must be finite")
 
         # Use cases for value_redirect:
         #  1. To merge multiple dps into a single HA setting (eg where the
@@ -1096,7 +1168,13 @@ class TuyaDpsConfig:
 
             if step and isinstance(result, Number):
                 _LOGGER.debug("Stepping %s to %s", result, step)
-                result = step * round(float(result) / step)
+                if self._config.get("decimal_bytes"):
+                    decimal_step = Decimal(str(step))
+                    result = float(
+                        decimal_step * round(Decimal(str(result)) / decimal_step)
+                    )
+                else:
+                    result = step * round(float(result) / step)
                 remap = self._find_map_for_value(result, device)
                 if (
                     remap
@@ -1120,12 +1198,27 @@ class TuyaDpsConfig:
         if r and isinstance(result, Number):
             mn = r[0]
             mx = r[1]
-            if round(result) < mn or round(result) > mx:
+            checked = result if self._config.get("decimal_bytes") else round(result)
+            if checked < mn or checked > mx:
                 # Output scaled values in the error message
                 r = self.range(device, scaled=True)
                 mn = r[0]
                 mx = r[1]
                 raise ValueError(f"{self.name} ({value}) must be between {mn} and {mx}")
+        digits = self._config.get("decimal_bytes")
+        if digits and isinstance(result, Number):
+            scale = 10**digits
+            decimal = Decimal(str(result))
+            if not decimal.is_finite() or not 0 <= decimal < 256:
+                raise ValueError(f"{self.name} ({value}) cannot fit decimal bytes")
+            units = int((decimal * scale).to_integral_value(rounding=ROUND_HALF_EVEN))
+            whole, fraction = divmod(units, scale)
+            if whole > 255:
+                raise ValueError(f"{self.name} ({value}) cannot fit decimal bytes")
+            result = whole * 256 + fraction
+            if not mask:
+                result = self.encode_value(result.to_bytes(2, self.endianness))
+
         if mask and isinstance(result, bool):
             result = int(result)
 

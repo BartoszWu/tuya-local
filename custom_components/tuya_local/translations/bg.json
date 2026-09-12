@@ -297,7 +297,9 @@
                             "manual": "Ръководство",
                             "program": "Програма",
                             "temp_override": "Временна отмяна",
-                            "perm_override": "Постоянна отмяна"
+                            "perm_override": "Постоянна отмяна",
+                            "hold": "Постоянна отмяна",
+                            "temporary_override": "Временна отмяна"
                         }
                     }
                 }

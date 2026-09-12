@@ -297,7 +297,9 @@
                             "manual": "マニュアル",
                             "program": "プログラム",
                             "temp_override": "一時的なオーバーライド",
-                            "perm_override": "永続的なオーバーライド"
+                            "perm_override": "永続的なオーバーライド",
+                            "hold": "永続的なオーバーライド",
+                            "temporary_override": "一時的なオーバーライド"
                         }
                     }
                 }

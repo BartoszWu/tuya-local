@@ -297,7 +297,9 @@
                             "manual": "手動",
                             "program": "程式",
                             "temp_override": "臨時覆蓋",
-                            "perm_override": "永久覆蓋"
+                            "perm_override": "永久覆蓋",
+                            "hold": "永久覆蓋",
+                            "temporary_override": "臨時覆蓋"
                         }
                     }
                 }

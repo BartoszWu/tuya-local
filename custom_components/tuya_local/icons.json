@@ -236,7 +236,9 @@
                             "manual": "mdi:thermostat-cog",
                             "program": "mdi:thermostat-auto",
                             "temp_override": "mdi:calendar-lock",
-                            "perm_override": "mdi:calendar-lock-open"
+                            "perm_override": "mdi:calendar-lock-open",
+                            "hold": "mdi:thermometer",
+                            "temporary_override": "mdi:hand-pointing-up"
                         }
                     }
                 }

@@ -297,7 +297,9 @@
                             "manual": "Manuell",
                             "program": "Programm",
                             "temp_override": "Temporäre Außerkraftsetzung",
-                            "perm_override": "Permanente Außerkraftsetzung"
+                            "perm_override": "Permanente Außerkraftsetzung",
+                            "hold": "Permanente Außerkraftsetzung",
+                            "temporary_override": "Temporäre Außerkraftsetzung"
                         }
                     }
                 }

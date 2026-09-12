@@ -297,7 +297,9 @@
                             "manual": "Manual",
                             "program": "Program",
                             "temp_override": "Temporary Override",
-                            "perm_override": "Permanent Override"
+                            "perm_override": "Permanent Override",
+                            "hold": "Hold",
+                            "temporary_override": "Temporary override"
                         }
                     }
                 }

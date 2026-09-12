@@ -297,7 +297,9 @@
                             "manual": "Manual",
                             "program": "Programa",
                             "temp_override": "Substituição temporária",
-                            "perm_override": "Substituição permanente"
+                            "perm_override": "Substituição permanente",
+                            "hold": "Substituição permanente",
+                            "temporary_override": "Substituição temporária"
                         }
                     }
                 }

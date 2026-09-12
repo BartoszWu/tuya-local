@@ -297,6 +297,35 @@ the device type.
 
 For base64 and hex types, this specifies how to extract a single numeric value from the binary data. The value should be a hex bit mask (eg 00FF00 to extract the middle byte of a 3 byte value). Unlike format, this does not require special handling in the entity platform, as only a single value is being extracted.
 
+### `decimal_bytes`
+
+*Optional, 1 or 2.*
+
+For `hex` and `base64` DPs, interpret two bytes as an unsigned whole number
+byte followed by a fractional byte containing one or two decimal digits.
+For example, with `decimal_bytes: 1`, hex `1302` represents 19.2. This is
+not binary fixed point or BCD. Values with an invalid fractional byte return
+unknown. The byte order follows `endianness`.
+
+Decoding happens after `mask` extraction and before mapping. Without a mask,
+the payload must contain exactly two bytes. Writes reverse the conversion,
+rounding to the configured decimal precision with Decimal and ties to even.
+The range and mapping operate on the decoded number. Masked writes preserve
+other bits and require a known current payload, as usual. Without a mask,
+writes create a complete two-byte payload and need no prior DP value.
+Do not combine this unsigned representation with `mask_signed`.
+
+Use `value_mirror` to read reported state from a different DP while sending
+commands to this DP. For example, Euroster uses DP108 for Hold commands and
+DP103 for reported temperatures. The app shows raw bytes as hex: `1301` for
+19.1 C, `1302` for 19.2 C, and `ffff` to resume the schedule. On the LAN these
+use `type: base64`: `EwE=`, `EwI=`, and `//8=` respectively. Resume schedule and
+the 19.2 C Hold command have been verified on hardware over the LAN. Other
+temperatures follow the inferred encoding. DP103 may acknowledge a command
+before the wireless display refreshes. A delayed display refresh does not
+necessarily mean delayed command acceptance; use DP103 to verify the controller
+state and do not retry solely because the display has not refreshed.
+
 ### `endianness`
 
 *Optional, default="big"*
@@ -434,6 +463,53 @@ normal on icon, but not the off icon.
 If you don't specify any priorities, the icons will all get the same priority,
 so if any overlap exists in the rules, it won't always be predictable which
 icon will be displayed.
+
+### `write_mapping`
+
+*Optional, on a DP.* A list of command rules, evaluated in order independently
+of the read `mapping`. This supports reported state in one DP and commands in
+another, including commands carrying the current value of another attribute.
+No matching rule raises an error; it never falls back to writing the report DP.
+
+Each rule may specify:
+
+- `value`: match the requested HA value; omitted means any value.
+- `when`: a dictionary of attribute names and required decoded HA values.
+  All must match. Missing reports are `null`, not an assumed default.
+- `target`: another DP attribute in the same entity. Omitted means a no-op.
+- `write_value`: a constant HA value to pass through the target's encoder.
+- `value_from`: read an attribute and pass its value through the target's encoder.
+  Mutually exclusive with `write_value`. Without either, pass the requested value.
+
+Targets must be writable; missing sources and cyclic command mappings fail.
+A no-op does not send a device update. Read mapping, range, and step remain
+independent; command targets must define the appropriate validation and encoding.
+
+For climate presets that use `value_from: temperature`, a combined preset and
+temperature request is routed once, using the explicitly requested preset as
+command context. The displayed preset still comes from the device report.
+Presets without that source (for example, resume schedule) cannot be combined
+with a manual temperature. Other profiles retain their existing setter behavior.
+
+Euroster 4040 uses DP103's first-byte mask `0x50` for Program (`0`),
+Temporary override (`1` after mask normalization), and Hold (`4`). This is
+confirmed by hardware captures during idle-to-heating transitions for all three
+presets: Program `29 -> 2d`, Temporary override `39 -> 3d`, Hold `69 -> 6d`
+(first-byte hex). The preset flags stay fixed while the low nibble changes from
+9 (idle) to 13 (heating). Combinations with action 1 or 5 have synthetic test
+coverage only. Unknown flag combinations remain unknown. The HVAC action mask
+is unchanged.
+
+A temperature change in Program starts Temporary override via DP109; subsequent
+changes preserve Temporary override or Hold (DP108). Selecting either override
+uses the reported target. Program and Resume schedule cancel only the reported
+active override with raw `ff ff`. Selecting an already active preset is a no-op.
+Wait for the device report before issuing another separate mode-dependent command;
+the wireless display can lag behind the controller report. Do not retry automatically.
+DP109 raw `13 00` (19.0 C) sent as `EwA=` over LAN was followed by a DP103
+Temporary override report about 0.6 seconds later in a hardware test. This
+confirms DP109 Base64 transport, not a guaranteed latency. Schedule editing
+(DP110) is not involved.
 
 ### `value_redirect`
 
@@ -846,4 +922,3 @@ to use it for other length timers.
 - **max_temperature** (optional, number): a dp that reports the maximum temperature the water heater can be set to, in case this is not a fixed value.
 
 - **away_mode** (optional, boolean): a dp to control whether the water heater is in away mode.
-

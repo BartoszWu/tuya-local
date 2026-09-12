@@ -297,7 +297,9 @@
                             "manual": "دستی",
                             "program": "پروگرام",
                             "temp_override": "عارضی اوور رائیڈ",
-                            "perm_override": "مستقل اوور رائڈ"
+                            "perm_override": "مستقل اوور رائڈ",
+                            "hold": "مستقل اوور رائڈ",
+                            "temporary_override": "عارضی اوور رائیڈ"
                         }
                     }
                 }

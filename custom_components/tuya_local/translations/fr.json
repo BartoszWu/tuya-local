@@ -297,7 +297,9 @@
                             "manual": "Manuel",
                             "program": "Programme",
                             "temp_override": "Annulation temporaire",
-                            "perm_override": "Annulation permanente"
+                            "perm_override": "Annulation permanente",
+                            "hold": "Annulation permanente",
+                            "temporary_override": "Annulation temporaire"
                         }
                     }
                 }

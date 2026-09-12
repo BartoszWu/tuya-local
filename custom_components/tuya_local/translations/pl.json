@@ -297,7 +297,9 @@
                             "manual": "Ręczny",
                             "program": "Program",
                             "temp_override": "Tymczasowo Nadpisany",
-                            "perm_override": "Trwale Nadpisany"
+                            "perm_override": "Trwale Nadpisany",
+                            "hold": "Stała",
+                            "temporary_override": "Chwilowa"
                         }
                     }
                 }

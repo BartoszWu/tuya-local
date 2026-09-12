@@ -297,7 +297,9 @@
                             "manual": "Manual",
                             "program": "Program",
                             "temp_override": "Ambil alih sementara",
-                            "perm_override": "Ambil alih permanen"
+                            "perm_override": "Ambil alih permanen",
+                            "hold": "Ambil alih permanen",
+                            "temporary_override": "Ambil alih sementara"
                         }
                     }
                 }

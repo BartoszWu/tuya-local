@@ -14,14 +14,14 @@ export PATH="$HOME/.local/bin:$PATH"
 
 ## Coding standards
 
-- Python files should be checked with `uv run ruff check`, `uv run ruff check --select -I`
+- Python files should be checked with `uv run ruff check`, `uv run ruff check --select I`
 - Python files should be formatted consistently with `uv run ruff format`
 - YAML files for device configuration should be checked with `uv run yamllint`
 - YAML files for device configuration must be located in the custom_components/tuya_local/devices folder
 - Python files implementing the HA integration must be located in custom_components/tuya_local and its subfolders, with unit tests in tests and its subfolders.
 - JSON files for translations are located in the custom_components/tuya_local/translations folder.
 - Icons for translation keys are defined in custom_components/tuya_local/icons.json, and use icons from the material design icons at https://pictogrammers.com/library/mdi/
-- Where possible, new devices should use existing translation_keys which are present in custom_components/tuya_local/translations/*.json and custom/components/tuya_local/icons.json
+- Where possible, new devices should use existing translation_keys which are present in custom_components/tuya_local/translations/*.json and custom_components/tuya_local/icons.json
 - if new translation_keys are added, they should be generic, not device specific, and translations in the appropriate language should be added to all files in custom_components/tuya_local/translations and relevant icons to custom_components/tuya_local/icons.json. It is best to submit additional translations as a separate PR request from new device submissions, as they can involve a lot of rework to existing configs.
 - Device and entity names should follow the Home Assistant naming guidelines. Only the first word should be capitalised.
 - Try to keep device and entity names concise.
@@ -42,7 +42,7 @@ export PATH="$HOME/.local/bin:$PATH"
 - If a device config matches perfectly except for the product details, then an entry can be made under the products section of that config for the user's device instead of creating a new config file.
 - If a device config is found that is close, but not perfectly matching, it can be used as a template for a new config. If multiple files are close matches, the most recently added one is likely to be the best quality template to follow.
 - To create a unique but concise filename, the format `${BRAND}_${MODEL}_${TYPE}.yaml` is used, where ${BRAND} is the brand as ASCII lower case letters and numbers with spaces and punctuation removed, ${MODEL} is the model name or number as ASCII lower case letters and numbers with spaces and punctuation removed, and ${TYPE} is the type of device as lower case ASCII letters with spaces and punctuation removed. If model is unknown, then `${BRAND}_${TYPE}` can be used.
-- If the name chosen by this formula already exists, first check if the dps details are a close match, if there are no conflicts then it may be better to modify the exisiting config to add missing details. If this is done, any added dps must be larked as `optional: true` in case the older variant is missing these.
+- If the name chosen by this formula already exists, first check if the dps details are a close match, if there are no conflicts then it may be better to modify the exisiting config to add missing details. If this is done, any added dps must be marked as `optional: true` in case the older variant is missing these.
 - If the name chosen already exists and is not a match, append v2 to the ${MODEL} portion of the name. If this also exists, try v3, etc.
 - The top level `name` inside the config should be generic, without branding, as other brands of device can often match the same config. Branding should go under `products` only.
 - The `products` entry for the device must have an `id`, as determined in the information gathering above. If known, the `manufacturer` and `model` should be filled in. Rarely, model is split into a descriptive `model` and a code `model_id`.
@@ -77,7 +77,19 @@ export PATH="$HOME/.local/bin:$PATH"
 - add new tests if making a python file change that introduces new functionality
 - fix any test or lint failures until the whole test suite passes
 
+## Working-tree and privacy boundaries
+
+- Inspect `git status --short --branch` and preserve existing user changes.
+- Verify the repository root and remotes before working in a submodule. Fetch
+  `origin` and, for fork work, `upstream`; compare their main branches without
+  rewriting published history. Use a feature branch for a PR.
+- Never commit or publish local keys, device IDs, account credentials, private
+  URLs, IP/MAC addresses or raw device logs. Use sanitized DPS examples and
+  synthetic fixtures; do not include identifying logs in PR descriptions.
+- A PR does not authorize installation into a running Home Assistant instance,
+  device control, restarting HA or merging the PR.
+
 ## PR instructions
 
-- Please separate 
-- Always run `uv run ruff check .`, `uv run ruff check --select -I .`, `uv run ruff format --check .` and `uv run yamllint custom_components/tuya_local/devices` before committing
+- Keep device additions, integration logic changes and unrelated translation work in separate PRs.
+- Always run `uv run ruff check .`, `uv run ruff check --select I .`, `uv run ruff format --check .` and `uv run yamllint custom_components/tuya_local/devices` before committing

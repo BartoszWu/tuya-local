@@ -13,6 +13,8 @@ permissions:
 jobs:
   sync:
     runs-on: ubuntu-latest
+    env:
+      GH_REPO: ${{ github.repository }}
 
     steps:
       - name: Checkout fork

@@ -797,6 +797,12 @@
             "ambient_temperature": {
                 "default": "mdi:sun-thermometer"
             },
+            "inlet_temperature": {
+                "default": "mdi:water-thermometer"
+            },
+            "outlet_temperature": {
+                "default": "mdi:water-thermometer"
+            },
             "cleanliness": {
                 "default": "mdi:biohazard",
                 "state": {

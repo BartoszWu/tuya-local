@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "Temperatura dzienna"
+            },
+            "night_temperature": {
+                "name": "Temperatura nocna"
+            },
             "flame_level": {
                 "name": "Poziom płomienia"
             },

@@ -81,3 +81,43 @@ def test_mapping_scale_and_step(mocker):
     device = mock_device({"42": "1302"}, mocker)
     assert config.get_value(device) == 1.92
     assert config.get_values_to_set(device, 1.915) == {"42": "1302"}
+
+
+@pytest.mark.parametrize(
+    "source_type,target_type", [("hex", "base64"), ("base64", "hex")]
+)
+def test_mask_source_uses_report_and_pending_command(mocker, source_type, target_type):
+    entity = Mock()
+    source = TuyaDpsConfig(entity, {"id": 41, "type": source_type, "name": "report"})
+    entity.find_dps.return_value = source
+    config = dp(type=target_type, mask="00ffff00", mask_source="report")
+    config._entity = entity
+    reported = source.encode_value(bytes.fromhex("aa1302bb"))
+    stale_command = config.encode_value(bytes.fromhex("cc1405dd"))
+    device = mock_device({"41": reported, "42": stale_command}, mocker)
+    assert config.get_values_to_set(device, 21.6) == {
+        "42": config.encode_value(bytes.fromhex("aa1506bb"))
+    }
+    assert config.get_values_to_set(device, 21.6, {"42": stale_command}) == {
+        "42": config.encode_value(bytes.fromhex("cc1506dd"))
+    }
+
+
+@pytest.mark.parametrize("raw", [None, "", "aa1302", "aa1302bbcc", "not hex"])
+def test_mask_source_requires_complete_report(mocker, raw):
+    entity = Mock()
+    source = TuyaDpsConfig(entity, {"id": 41, "type": "hex", "name": "report"})
+    entity.find_dps.return_value = source
+    config = dp(mask="00ffff00", mask_source="report")
+    config._entity = entity
+    # Even an old command value cannot replace an unknown report.
+    device = mock_device({"41": raw, "42": "aa1302bb"}, mocker)
+    with pytest.raises(ValueError, match="mask source"):
+        config.get_values_to_set(device, 20.6)
+
+
+def test_mask_source_requires_existing_attribute(mocker):
+    config = dp(mask="00ffff00", mask_source="missing")
+    config._entity.find_dps.return_value = None
+    with pytest.raises(ValueError, match="Unknown mask source"):
+        config.get_values_to_set(mock_device({}, mocker), 20.6)

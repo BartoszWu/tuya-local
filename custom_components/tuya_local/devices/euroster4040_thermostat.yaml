@@ -66,8 +66,6 @@ entities:
           - value_mirror: reported_temperature
             step: 0.1
         write_mapping:
-          - when: {preset_mode: program}
-            target: temporary_command
           - when: {preset_mode: temporary_override}
             target: temporary_command
           - when: {preset_mode: hold}
@@ -217,3 +215,67 @@ entities:
             value: hold
           - value: null
             hidden: true
+
+  - entity: number
+    translation_key: night_temperature
+    class: temperature
+    category: config
+    dps:
+      - id: 110
+        type: base64
+        name: value
+        optional: true
+        mask: "00000000000000000000000000FFFF00000000"
+        mask_source: schedule_report
+        decimal_bytes: 1
+        range: {min: 5, max: 35}
+        unit: C
+        mapping:
+          - value_mirror: reported_temperature
+            step: 0.1
+      - id: 104
+        type: base64
+        name: reported_temperature
+        optional: true
+        readonly: true
+        hidden: true
+        mask: "00000000000000000000000000FFFF00000000"
+        decimal_bytes: 1
+      - id: 104
+        type: base64
+        name: schedule_report
+        optional: true
+        readonly: true
+        hidden: true
+
+  - entity: number
+    translation_key: day_temperature
+    class: temperature
+    category: config
+    dps:
+      - id: 110
+        type: base64
+        name: value
+        optional: true
+        mask: "000000000000000000000000000000FFFF0000"
+        mask_source: schedule_report
+        decimal_bytes: 1
+        range: {min: 5, max: 35}
+        unit: C
+        mapping:
+          - value_mirror: reported_temperature
+            step: 0.1
+      - id: 104
+        type: base64
+        name: reported_temperature
+        optional: true
+        readonly: true
+        hidden: true
+        mask: "000000000000000000000000000000FFFF0000"
+        decimal_bytes: 1
+      - id: 104
+        type: base64
+        name: schedule_report
+        optional: true
+        readonly: true
+        hidden: true

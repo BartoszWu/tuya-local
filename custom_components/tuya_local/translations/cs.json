@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "Denní teplota"
+            },
+            "night_temperature": {
+                "name": "Noční teplota"
+            },
             "flame_level": {
                 "name": "Úroveň plamene"
             },

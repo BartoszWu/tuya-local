@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "Денна температура"
+            },
+            "night_temperature": {
+                "name": "Нічна температура"
+            },
             "flame_level": {
                 "name": "Рівень полум'я"
             },

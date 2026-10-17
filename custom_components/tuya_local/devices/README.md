@@ -297,6 +297,23 @@ the device type.
 
 For base64 and hex types, this specifies how to extract a single numeric value from the binary data. The value should be a hex bit mask (eg 00FF00 to extract the middle byte of a 3 byte value). Unlike format, this does not require special handling in the entity platform, as only a single value is being extracted.
 
+### `mask_source`
+
+*Optional, attribute name in the same entity; requires `mask` and a hex/base64 DP.*
+
+Use the complete raw payload of this attribute as the basis of a masked write
+instead of the command DP's current value. This supports devices reporting a
+packed structure on one DP and accepting the updated structure on another.
+The source is decoded using its own type; the result is encoded using the
+command DP's type. Neither value mapping nor mask extraction is applied to
+the source. Pending writes to the command DP take precedence, allowing several
+fields to be merged in one command. Missing reports or payloads whose byte
+length differs from the mask length cause an error, without sending a command.
+
+This uses the latest cached report, not a fresh device query. Wait for a new
+report acknowledging each edit before sending another; concurrent edits from
+another client cannot be made atomic by this mechanism.
+
 ### `decimal_bytes`
 
 *Optional, 1 or 2.*
@@ -924,3 +941,27 @@ to use it for other length timers.
 - **max_temperature** (optional, number): a dp that reports the maximum temperature the water heater can be set to, in case this is not a fixed value.
 
 - **away_mode** (optional, boolean): a dp to control whether the water heater is in away mode.
+
+## Euroster program temperatures
+
+Euroster 4040 reports the program payload on DP104 and accepts the complete
+updated payload on DP110 (RAW, `type: base64` on LAN). App captures confirm a
+19-byte payload, with night temperature in bytes 13–14 and day temperature in
+bytes 15–16, indexed from zero. Each uses `decimal_bytes: 1`. Preserve all other
+bytes, including the selected day, timetable and unknown trailing fields.
+This provides temperature edits only, not a timetable editor. The reported
+payload may describe a selected day; these entities do not promise a global
+all-days edit. Fetch the intended day's schedule and confirm the report before
+editing. Do not synthesize a payload when DP104 is missing.
+
+The day/night number entities read DP104, including its acknowledgement after
+an edit. DP103 remains the source for the active climate target, current
+room temperature, preset and HVAC action; it need not change after editing an
+inactive program temperature. These app captures establish the temperature
+fields; DP110 writes over LAN still require hardware verification.
+
+In Program, a plain climate temperature command is rejected rather than
+starting an override or guessing which program temperature to edit. Use the
+day/night number entities. In Temporary override and Hold, temperature writes
+continue to use DP109 and DP108 respectively, retaining the reported preset.
+Explicitly choosing a different preset remains supported.

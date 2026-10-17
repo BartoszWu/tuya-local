@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "دن کا درجہ حرارت"
+            },
+            "night_temperature": {
+                "name": "رات کا درجہ حرارت"
+            },
             "flame_level": {
                 "name": "شعلے کی سطح"
             },

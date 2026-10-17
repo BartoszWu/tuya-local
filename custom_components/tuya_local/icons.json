@@ -430,6 +430,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "default": "mdi:weather-sunny"
+            },
+            "night_temperature": {
+                "default": "mdi:weather-night"
+            },
             "flame_level": {
                 "default": "mdi:fire"
             },

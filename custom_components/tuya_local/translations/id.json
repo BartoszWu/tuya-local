@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "Suhu siang"
+            },
+            "night_temperature": {
+                "name": "Suhu malam"
+            },
             "flame_level": {
                 "name": "Tingkat nyala api"
             },

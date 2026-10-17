@@ -125,12 +125,22 @@ def test_preset_and_action_independent(mocker, flags, preset, action, expected):
     assert set(climate.preset_modes) == {p for _, p in PRESETS}
 
 
-@pytest.mark.parametrize("flags,dp", [(0x20, "109"), (0x30, "109"), (0x60, "108")])
+@pytest.mark.parametrize("flags,dp", [(0x30, "109"), (0x60, "108")])
 async def test_temperature_routes_by_report(mocker, flags, dp):
     device, climate, _ = thermostat(mocker)
     report_preset(device, flags)
     async with assert_device_properties_set(device, {dp: "FgA="}):
         await climate.async_set_temperature(temperature=22.0)
+
+
+async def test_program_temperature_never_starts_override(mocker):
+    device, climate, _ = thermostat(mocker)
+    device.async_set_properties = mocker.AsyncMock()
+    report_preset(device, 0x20)
+    with pytest.raises(ValueError, match="No safe write mapping"):
+        await climate.async_set_temperature(temperature=22.0)
+    device.async_set_properties.assert_not_called()
+    assert climate.preset_mode == "program"
 
 
 @pytest.mark.parametrize("flags,current", PRESETS)

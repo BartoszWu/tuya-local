@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "Nappali hőmérséklet"
+            },
+            "night_temperature": {
+                "name": "Éjszakai hőmérséklet"
+            },
             "flame_level": {
                 "name": "Lángszint"
             },

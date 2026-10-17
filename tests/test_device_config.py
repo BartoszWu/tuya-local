@@ -123,6 +123,7 @@ DP_SCHEMA = vol.Schema(
         vol.Optional("mapping"): [MAPPING_SCHEMA],
         vol.Optional("format"): [FORMAT_SCHEMA],
         vol.Optional("mask"): str,
+        vol.Optional("mask_source"): str,
         vol.Optional("endianness"): vol.In(["little"]),
         vol.Optional("mask_signed"): True,
         vol.Optional("decimal_bytes"): vol.In([1, 2]),
@@ -486,6 +487,10 @@ def check_entity(entity, cfg, mocker):
             f"\n::error file={fname},line={line}::dp name missing from {e} in {cfg}"
         )
         extra.add(dp.name)
+        if source := dp._config.get("mask_source"):
+            redirects.add(source)
+            assert dp.mask and dp_type in ["hex", "base64"]
+            assert entity.find_dps(source).rawtype in ["hex", "base64"]
         for rule in dp.write_mapping or []:
             redirects.update(rule.get("when", {}))
             for reference in ("target", "value_from"):

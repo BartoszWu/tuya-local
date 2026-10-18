@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "Θερμοκρασία ημέρας"
+            },
+            "night_temperature": {
+                "name": "Θερμοκρασία νύχτας"
+            },
             "flame_level": {
                 "name": "Επίπεδο φλόγας"
             },

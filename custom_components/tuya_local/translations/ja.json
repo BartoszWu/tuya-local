@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "日中温度"
+            },
+            "night_temperature": {
+                "name": "夜間温度"
+            },
             "flame_level": {
                 "name": "炎レベル"
             },

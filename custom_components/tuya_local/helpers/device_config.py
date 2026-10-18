@@ -1231,11 +1231,24 @@ class TuyaDpsConfig:
             mask_scale = mask & (1 + ~mask)
 
             # Get raw current value directly (avoids scaling being auto applied as it causes issues)
-            raw_current = device.get_property(self.id)
+            source = self._config.get("mask_source")
+            source_dp = self._entity.find_dps(source) if source else self
+            if source_dp is None:
+                raise ValueError(f"Unknown mask source: {source}")
+            raw_current = device.get_property(source_dp.id)
             if self.id in pending_map:
                 decoded_value = self.decode_value(pending_map[self.id], device)
             else:
-                decoded_value = self.decode_value(raw_current, device)
+                decoded_value = source_dp.decode_value(raw_current, device)
+
+            # A separate report must contain the complete payload. Never pad
+            # a truncated report or silently discard unknown trailing bytes.
+            if source and (
+                not isinstance(decoded_value, bytes) or len(decoded_value) != length
+            ):
+                raise ValueError(
+                    f"Missing or invalid payload for mask source: {source}"
+                )
 
             if decoded_value is None:
                 raise ValueError("Cannot mask unknown current value")

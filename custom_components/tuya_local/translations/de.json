@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "Tagtemperatur"
+            },
+            "night_temperature": {
+                "name": "Nachttemperatur"
+            },
             "flame_level": {
                 "name": "Flammenstufe"
             },

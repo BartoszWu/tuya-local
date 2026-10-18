@@ -568,6 +568,12 @@
             }
         },
         "number": {
+            "day_temperature": {
+                "name": "Temperatură de zi"
+            },
+            "night_temperature": {
+                "name": "Temperatură de noapte"
+            },
             "flame_level": {
                 "name": "Nivel flacără"
             },

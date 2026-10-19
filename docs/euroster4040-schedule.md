@@ -35,7 +35,13 @@ cache is not confirmation. Each request has an 8-second deadline including
 sending, and at most two attempts (250 ms between attempts). Concurrent
 refreshes serialize. Cancellation cleans up the waiter and releases the lock.
 After the climate entity is added and the device first returns state, one
-background refresh reads the seven days. It does not block HA startup or send
+background refresh reads the seven days. If the initial status lacks DP103,
+it first sends DP101=True (the existing Update sensors action) once and waits
+up to 8 seconds for a real DP103 report. An acknowledgment alone does not count
+as sensor data. If that report times out, the week is still read and subsequent
+reports do not cause a retry storm. When DP103 is already cached, no DP101 is sent.
+This fills the missing current temperature, active target and preset after a
+restart without changing their values. The background read does not block HA startup or send
 DP110, a temperature or a preset command. Removing the entity cancels the task
 and its outstanding waiter. After a failed batch, use the explicit refresh
 action; subsequent reports do not restart it in a loop. A complete cache is

@@ -23,6 +23,7 @@ class EurosterClimate(TuyaLocalClimate):
         self._schedule_entity_added = False
         self._initial_schedule_started = False
         self._initial_schedule_task = None
+        self._initial_sensor_report = asyncio.Event()
 
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
@@ -52,6 +53,18 @@ class EurosterClimate(TuyaLocalClimate):
             )
 
     async def _async_read_initial_schedule(self):
+        # A normal status response can omit DP103. The existing Update sensors
+        # action (DP101=True) requests it without changing temperature or mode.
+        if self._device.get_property("103") is None:
+            self._initial_sensor_report.clear()
+            try:
+                async with asyncio.timeout(self.schedule.timeout):
+                    await self._device.async_set_property("101", True)
+                    await self._initial_sensor_report.wait()
+            except TimeoutError, ConnectionError:
+                _LOGGER.warning(
+                    "Initial Euroster sensor report unavailable; use Update sensors to retry"
+                )
         try:
             await self.async_refresh_schedule()
         except HomeAssistantError:
@@ -62,6 +75,8 @@ class EurosterClimate(TuyaLocalClimate):
             )
 
     def on_receive(self, dps, full_poll):
+        if isinstance(dps.get("103"), str):
+            self._initial_sensor_report.set()
         self.schedule.receive(dps)
         self._start_initial_schedule_read()
 

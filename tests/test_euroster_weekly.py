@@ -442,3 +442,73 @@ async def test_remove_cancels_initial_read_and_cleans_waiter(hass, mocker):
     assert climate.schedule._waiting is None
     assert not climate.schedule.lock.locked()
     device.async_unregister_entity.assert_awaited_once_with(climate)
+
+
+async def test_initial_read_requests_missing_dp103_before_week(hass, mocker):
+    device, climate = make_climate(mocker)
+    climate.hass = hass
+    mocker.patch.object(climate, "async_write_ha_state")
+    device.async_unregister_entity = AsyncMock()
+    # status() can return power/schedule while omitting the optional DP103.
+    cache = {"1": True}
+    device.get_property.side_effect = cache.get
+    sent = asyncio.Event()
+
+    async def send(dp, value):
+        if dp == "101":
+            assert value is True  # Existing Update sensors action, not a preset.
+            sent.set()
+        elif dp == "102":
+            assert "103" in cache, "Wait for a real sensor report before the week"
+            cache["104"] = transport(frame(value))
+            climate.on_receive({"104": cache["104"]}, False)
+        else:
+            raise AssertionError("Unexpected configuration write")
+
+    device.async_set_property.side_effect = send
+    await climate.async_added_to_hass()
+    await asyncio.wait_for(sent.wait(), timeout=1)
+    assert climate.current_temperature is None
+    assert climate.preset_mode is None
+    # Command acknowledgment alone must not count as sensor state.
+    assert device.async_set_property.await_count == 1
+    cache["103"] = transport(bytes.fromhex("290200000000000113021406800080000804"))
+    climate.on_receive({"103": cache["103"]}, False)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert climate.current_temperature == 20.6
+    assert climate.target_temperature == 19.2
+    assert climate.preset_mode == "program"
+    assert climate.extra_state_attributes["weekly_schedule"]["status"] == "ready"
+    assert [c.args for c in device.async_set_property.await_args_list] == [
+        ("101", True),
+        *[("102", day) for day in range(1, 8)],
+    ]
+    await climate.async_will_remove_from_hass()
+
+
+async def test_missing_dp103_timeout_still_reads_week_without_retry_storm(hass, mocker):
+    device, climate = make_climate(mocker)
+    climate.hass = hass
+    mocker.patch.object(climate, "async_write_ha_state")
+    device.async_unregister_entity = AsyncMock()
+    device.get_property.side_effect = lambda dp: True if dp == "1" else None
+    climate.schedule.timeout = 0.01
+
+    async def send(dp, value):
+        if dp == "102":
+            climate.on_receive({"104": transport(frame(value))}, False)
+        else:
+            assert (dp, value) == ("101", True)
+
+    device.async_set_property.side_effect = send
+    await climate.async_added_to_hass()
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert climate.current_temperature is None
+    assert climate.extra_state_attributes["weekly_schedule"]["status"] == "ready"
+    assert [c.args for c in device.async_set_property.await_args_list].count(
+        ("101", True)
+    ) == 1
+    climate.on_receive({"1": True}, True)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert device.async_set_property.await_count == 8
+    await climate.async_will_remove_from_hass()

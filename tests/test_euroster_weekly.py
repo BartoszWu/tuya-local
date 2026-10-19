@@ -157,7 +157,7 @@ async def test_sequential_week_ignores_wrong_day_and_publishes_safe_contract():
 
     async def send(dp, day):
         sent.append((dp, day))
-        reader.receive({"104": transport(frame(day % 7 + 1))})
+        reader.receive({"104": transport(frame(day % 7 + 1, tail=b"\x9a\xbc"))})
         assert not reader._waiting.done()
         reader.receive({"104": transport(frame(day, tail=b"\x9a\xbc"))})
 
@@ -308,7 +308,7 @@ async def test_climate_wires_real_receive_hook_and_refresh_service(hass, mocker)
     device.async_set_property.side_effect = send
     # Rebind captured mock method is the same mock object.
     await async_handle_refresh_schedule(
-        climate, ServiceCall(DOMAIN, "refresh_schedule", {})
+        climate, ServiceCall(hass, DOMAIN, "refresh_schedule", {})
     )
     attrs = climate.extra_state_attributes
     assert attrs["weekly_schedule"]["status"] == "ready"
@@ -318,7 +318,7 @@ async def test_climate_wires_real_receive_hook_and_refresh_service(hass, mocker)
     ] * 7
     with pytest.raises(ValueError):
         await async_handle_refresh_schedule(
-            Mock(), ServiceCall(DOMAIN, "refresh_schedule", {})
+            Mock(), ServiceCall(hass, DOMAIN, "refresh_schedule", {})
         )
     device.has_returned_state = False
     with pytest.raises(HomeAssistantError):
@@ -341,3 +341,31 @@ async def test_actual_platform_setup_selects_adapter(hass):
     assert isinstance(add.call_args.args[0][0], EurosterClimate)
     await async_setup_services(hass, ["climate"])
     assert hass.services.has_service(DOMAIN, "refresh_schedule")
+
+
+async def test_external_change_to_already_read_day_aborts_week_commit():
+    async def send(dp, day):
+        if day == 7:
+            reader.receive({"104": transport(frame(1, ["night"] * 48))})
+        reader.receive({"104": transport(frame(day))})
+
+    reader = ScheduleReader(send, lambda: True)
+    with pytest.raises(ValueError, match="during refresh"):
+        await reader.refresh()
+    assert reader._days == {}
+
+
+async def test_legacy_fetch_button_sends_integer_not_boolean(mocker):
+    from custom_components.tuya_local.button import TuyaLocalButton
+
+    device, _ = make_climate(mocker)
+    config = next(
+        e
+        for e in get_config("euroster4040_thermostat").all_entities()
+        if e.name == "Fetch schedule"
+    )
+    device.async_set_properties = AsyncMock()
+    await TuyaLocalButton(device, config).async_press()
+    value = device.async_set_properties.call_args.args[0]["102"]
+    assert type(value) is int
+    assert value == 1

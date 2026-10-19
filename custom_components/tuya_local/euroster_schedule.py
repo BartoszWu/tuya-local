@@ -104,6 +104,7 @@ class ScheduleReader:
         self._waiting = None
         self._requested_day = None
         self._days = {}
+        self._reports = {}
         self._synced_at = None
         self._synced_mono = None
         self._invalidated = False
@@ -126,6 +127,7 @@ class ScheduleReader:
             if self._waiting and not self._waiting.done():
                 self._waiting.set_exception(err)
             return
+        self._reports[report.day] = report
         if self._days.get(report.day) not in (None, report):
             self.invalidate("schedule_changed")
         if (
@@ -171,6 +173,10 @@ class ScheduleReader:
                 days = {}
                 for day in range(1, 8):
                     days[day] = await self.read_day(day)
+                if any(
+                    self._reports.get(day) != report for day, report in days.items()
+                ):
+                    raise ValueError("Schedule changed during refresh")
                 if len({d.payload[13:17] for d in days.values()}) != 1:
                     raise ValueError("Inconsistent global schedule temperatures")
                 self._days = days

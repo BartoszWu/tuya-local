@@ -49,8 +49,17 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         async_add_entities,
         config,
         "climate",
-        TuyaLocalClimate,
+        climate_for_config,
     )
+
+
+def climate_for_config(device, config):
+    """Select the protocol adapter only for the confirmed Euroster profile."""
+    if config._device.config_type == "euroster4040_thermostat":
+        from .euroster import EurosterClimate
+
+        return EurosterClimate(device, config)
+    return TuyaLocalClimate(device, config)
 
 
 def validate_temp_unit(unit):

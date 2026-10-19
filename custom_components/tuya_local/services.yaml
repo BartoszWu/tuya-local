@@ -20,3 +20,9 @@ send_learned_ir_command:
         entity:
           filter:
             domain: infrared
+
+refresh_schedule:
+  target:
+    entity:
+      domain: climate
+      integration: tuya_local

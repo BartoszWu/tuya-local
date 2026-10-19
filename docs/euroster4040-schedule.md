@@ -93,3 +93,70 @@ PR preparation does not install the integration, restart HA or authorize
 configuration writes. After separately approved installation, validate a
 read-only week against the official app before relying on the derived deadline.
 Schedule writes and app/DST behavior still require hardware validation.
+
+## Verified-write stage (stacked after the read-only PR)
+
+The following entity-targeted actions are available only for this profile:
+
+| Action | Inputs | Behavior |
+| --- | --- | --- |
+| `tuya_local.set_schedule` | `day`, 48 `periods`, 48 `expected_periods` | Fresh-read that day; reject if the displayed baseline changed; edit slots only. |
+| `tuya_local.copy_schedule` | `source_day`, distinct `target_days` | Fresh-read source and each destination; copy only slots, preserving destination global temperatures and unknown bytes. |
+| `tuya_local.set_program_temperatures` | optional `day_temperature`, `night_temperature` (at least one) | Fresh-read Monday; send at most one full DP110; verify that all seven days report the requested global levels. |
+
+Periods use `day` / `night`, in local half-hour order, with exactly 48 values.
+Temperatures must be finite 5..35°C in exact 0.1°C steps. Invalid requests fail
+before configuration writes. Existing day/night number entity IDs also remain
+usable through `number.set_value`: their factory now routes writes to the same
+reader and operation lock as the climate actions, regardless of setup order.
+Other number profiles keep their original implementation.
+
+Each actual change follows:
+
+```text
+fresh DP102 → DP104
+  → patch only intended fields, keep weekday and unknown tail
+  → one DP110
+  → wait for matching real DP104 acknowledgment
+  → explicit DP102 → compare complete DP104 bytes
+  → read complete week again → validate coherence and expected changes
+  → publish verified outcome
+```
+
+The application layer never retries DP110 or silently restores old data. The
+existing lower-level Tuya transport retains its connection retry behavior.
+Acknowledgment alone is insufficient; an API send return or anticipated DPS
+is not evidence. DP102 reads may retry within the bounded read policy. If a
+firmware does not return a DP104 acknowledgment after DP110, this conservative
+path times out rather than claiming success, even if the device changed.
+
+There is no seven-write fallback for global levels. If the other six reports
+do not prove global scope, the action fails and must be reviewed on hardware.
+Copying is explicitly per destination and is not atomic across multiple days.
+If a later destination fails, earlier confirmed changes remain; there is no
+automatic rollback. `weekly_schedule.last_write` contains:
+
+```text
+operation: set_day | copy_days | set_temperatures
+status: pending | verified | unconfirmed
+confirmed_days: [weekday numbers with a matching explicit readback]
+at: ISO-8601 UTC
+```
+
+An unconfirmed outcome invalidates the cache and suppresses calculated
+transitions. `confirmed_days` is evidence about those readbacks, not a guarantee
+that a later app edit has not changed them. Refresh and inspect the thermostat
+before retrying. A no-op performs verification but sends no DP110.
+
+The frontend must show the scope and summary before the user submits, retain
+`expected_periods` from the displayed day, handle service errors, and render
+only observed results. It must not encode Tuya bytes. These APIs prepare the
+backend contract; dashboard PR #64 does not yet expose the week editor.
+
+Tests add encode/decode identity on all provided captures, the captured noon
+slot edit, fresh-read unknown-byte preservation, stale edit conflicts, one-write
+global scope, mismatched/missing acknowledgments, readback mismatch, no-op,
+partial copy, cancellation, shared climate/number locking and service dispatch.
+All transport scenarios are synthetic; this code has not been installed or
+used to write a real thermostat. Read-only hardware comparison precedes any
+separately approved live-write test, per the requested staged rollout.

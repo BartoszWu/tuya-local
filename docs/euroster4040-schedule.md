@@ -34,8 +34,12 @@ The reader uses `on_receive`, not `get_property`: Tuya's anticipated-write
 cache is not confirmation. Each request has an 8-second deadline including
 sending, and at most two attempts (250 ms between attempts). Concurrent
 refreshes serialize. Cancellation cleans up the waiter and releases the lock.
-After the climate entity is added and the device first returns state, one
-background refresh reads the seven days. If the initial status lacks DP103,
+After the climate entity is added, Home Assistant has fully started
+(`EVENT_HOMEASSISTANT_STARTED`), and the device has returned state, one background
+refresh reads the seven days. The initial setup/status query may populate the
+cache before the receiver starts; that cached state alone must not trigger queries.
+`async_at_started` also handles adding/reloading an entity on an already running
+HA, and its listener is removed when the entity is removed. If the initial status lacks DP103,
 it first sends DP101=True (the existing Update sensors action) once and waits
 up to 8 seconds for a real DP103 report. An acknowledgment alone does not count
 as sensor data. If that report times out, the week is still read and subsequent

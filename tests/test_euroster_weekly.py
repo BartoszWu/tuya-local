@@ -512,3 +512,98 @@ async def test_missing_dp103_timeout_still_reads_week_without_retry_storm(hass, 
     await hass.async_block_till_done(wait_background_tasks=True)
     assert device.async_set_property.await_count == 8
     await climate.async_will_remove_from_hass()
+
+
+@pytest.mark.parametrize("has_sensor_report", [False, True])
+async def test_boot_waits_for_real_device_receiver_before_initial_queries(
+    hass, mocker, has_sensor_report
+):
+    """Replay startup with the real register/start hooks, not an always-live mock."""
+    from time import time
+
+    from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+    from homeassistant.core import CoreState
+
+    from custom_components.tuya_local.device import TuyaLocalDevice
+
+    hass.set_state(CoreState.not_running)
+    hass.data[DOMAIN] = {}
+    api = mocker.patch("tinytuya.Device").return_value
+    api.parent = None
+    api.id = "test_device_id"
+    device = TuyaLocalDevice(
+        "Test thermostat",
+        "test_device_id",
+        "test.invalid",
+        "test_key",
+        "3.3",
+        None,
+        hass,
+    )
+    # The initial setup/status query succeeded before platform setup. This is
+    # sufficient for has_returned_state but does NOT start the receive loop.
+    device._cached_state = {"1": True, "updated_at": time()}
+    report = transport(bytes.fromhex("290200000000000113021406800080000804"))
+    if has_sensor_report:
+        device._cached_state["103"] = report
+    device.receive_loop = AsyncMock()
+    device.async_set_property = AsyncMock()
+    config = next(
+        c
+        for c in get_config("euroster4040_thermostat").all_entities()
+        if c.entity == "climate"
+    )
+    climate = climate_for_config(device, config)
+    climate.hass = hass
+    mocker.patch.object(climate, "async_write_ha_state")
+    mocker.patch.object(climate, "async_schedule_update_ha_state")
+
+    async def send(dp, value):
+        assert device._running, "There is no receive loop to deliver the response"
+        if dp == "101":
+            assert value is True
+            device._cached_state["103"] = report
+            climate.on_receive({"103": report}, False)
+        else:
+            assert dp == "102"
+            climate.on_receive({"104": transport(frame(value))}, False)
+
+    device.async_set_property.side_effect = send
+    await climate.async_added_to_hass()
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert device.has_returned_state
+    assert not device._running
+    device.async_set_property.assert_not_called()
+    # is_running also covers CoreState.starting; it is not a safe boot gate.
+    hass.set_state(CoreState.starting)
+    climate.on_receive({"1": True}, True)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    device.async_set_property.assert_not_called()
+    hass.set_state(CoreState.running)
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    expected = [] if has_sensor_report else [("101", True)]
+    expected += [("102", day) for day in range(1, 8)]
+    assert [c.args for c in device.async_set_property.await_args_list] == expected
+    assert climate.extra_state_attributes["weekly_schedule"]["status"] == "ready"
+    await climate.async_will_remove_from_hass()
+
+
+async def test_removal_before_ha_started_cancels_initial_read_listener(hass, mocker):
+    from homeassistant.const import EVENT_HOMEASSISTANT_STARTED
+    from homeassistant.core import CoreState
+
+    hass.set_state(CoreState.not_running)
+    device, climate = make_climate(mocker)
+    climate.hass = hass
+    device.async_unregister_entity = AsyncMock()
+    mocker.patch.object(climate, "async_write_ha_state")
+    await climate.async_added_to_hass()
+    # HA invokes removal callbacks before async_will_remove_from_hass.
+    climate._call_on_remove_callbacks()
+    await climate.async_will_remove_from_hass()
+    hass.set_state(CoreState.running)
+    hass.bus.async_fire(EVENT_HOMEASSISTANT_STARTED)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert not climate._ha_started
+    device.async_set_property.assert_not_called()

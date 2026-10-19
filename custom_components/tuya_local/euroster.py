@@ -5,7 +5,9 @@ import logging
 from contextlib import suppress
 from datetime import UTC, datetime
 
+from homeassistant.core import callback
 from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.start import async_at_started
 
 from .climate import TuyaLocalClimate
 from .euroster_schedule import schedule_for_device
@@ -21,6 +23,7 @@ class EurosterClimate(TuyaLocalClimate):
         super().__init__(device, config)
         self.schedule = schedule_for_device(device)
         self._schedule_entity_added = False
+        self._ha_started = False
         self._initial_schedule_started = False
         self._initial_schedule_task = None
         self._initial_sensor_report = asyncio.Event()
@@ -28,6 +31,13 @@ class EurosterClimate(TuyaLocalClimate):
     async def async_added_to_hass(self):
         await super().async_added_to_hass()
         self._schedule_entity_added = True
+        # Initial status can be cached before the device's receive loop starts.
+        # A request sent then has no consumer for its DP103/DP104 response.
+        self.async_on_remove(async_at_started(self.hass, self._async_on_hass_started))
+
+    @callback
+    def _async_on_hass_started(self, hass):
+        self._ha_started = True
         self._start_initial_schedule_read()
 
     async def async_will_remove_from_hass(self):
@@ -41,6 +51,7 @@ class EurosterClimate(TuyaLocalClimate):
     def _start_initial_schedule_read(self):
         if (
             self._schedule_entity_added
+            and self._ha_started
             and not self._initial_schedule_started
             and self._device.has_returned_state
         ):

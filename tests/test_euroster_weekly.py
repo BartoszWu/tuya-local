@@ -369,3 +369,76 @@ async def test_legacy_fetch_button_sends_integer_not_boolean(mocker):
     value = device.async_set_properties.call_args.args[0]["102"]
     assert type(value) is int
     assert value == 1
+
+
+@pytest.mark.parametrize("connected_at_add", [False, True])
+async def test_initial_schedule_loads_once_after_connection_without_configuration_writes(
+    hass, mocker, connected_at_add
+):
+    device, climate = make_climate(mocker)
+    climate.hass = hass
+    device.has_returned_state = connected_at_add
+    device.async_unregister_entity = AsyncMock()
+    mocker.patch.object(climate, "async_write_ha_state")
+
+    async def send(dp, day):
+        assert dp == "102"
+        assert type(day) is int
+        climate.on_receive({"104": transport(frame(day))}, False)
+
+    device.async_set_property.side_effect = send
+    # Reports before HA adds the entity must not start unmanaged IO.
+    climate.on_receive({}, True)
+    device.async_set_property.assert_not_called()
+    await climate.async_added_to_hass()
+    if not connected_at_add:
+        await hass.async_block_till_done(wait_background_tasks=True)
+        device.async_set_property.assert_not_called()
+        device.has_returned_state = True
+        climate.on_receive({"1": True}, True)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert climate.extra_state_attributes["weekly_schedule"]["status"] == "ready"
+    assert [call.args for call in device.async_set_property.await_args_list] == [
+        ("102", day) for day in range(1, 8)
+    ]
+    climate.on_receive({"1": True}, True)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert device.async_set_property.await_count == 7
+    device.async_set_properties.assert_not_called()
+    await climate.async_will_remove_from_hass()
+
+
+async def test_initial_schedule_failure_does_not_retry_on_every_report(hass, mocker):
+    device, climate = make_climate(mocker)
+    climate.hass = hass
+    device.async_unregister_entity = AsyncMock()
+    mocker.patch.object(climate, "async_write_ha_state")
+    refresh = mocker.patch.object(
+        climate.schedule, "refresh", side_effect=ConnectionError("Disconnected")
+    )
+    await climate.async_added_to_hass()
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert refresh.await_count == 1
+    climate.on_receive({"1": True}, True)
+    await hass.async_block_till_done(wait_background_tasks=True)
+    assert refresh.await_count == 1
+    # Explicit refresh remains usable after a failed automatic read.
+    refresh.side_effect = None
+    await climate.async_refresh_schedule()
+    assert refresh.await_count == 2
+    await climate.async_will_remove_from_hass()
+
+
+async def test_remove_cancels_initial_read_and_cleans_waiter(hass, mocker):
+    device, climate = make_climate(mocker)
+    climate.hass = hass
+    device.async_unregister_entity = AsyncMock()
+    mocker.patch.object(climate, "async_write_ha_state")
+    sent = asyncio.Event()
+    device.async_set_property.side_effect = lambda *args: sent.set()
+    await climate.async_added_to_hass()
+    await asyncio.wait_for(sent.wait(), timeout=1)
+    await climate.async_will_remove_from_hass()
+    assert climate.schedule._waiting is None
+    assert not climate.schedule.lock.locked()
+    device.async_unregister_entity.assert_awaited_once_with(climate)

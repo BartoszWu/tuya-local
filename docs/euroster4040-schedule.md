@@ -34,8 +34,13 @@ The reader uses `on_receive`, not `get_property`: Tuya's anticipated-write
 cache is not confirmation. Each request has an 8-second deadline including
 sending, and at most two attempts (250 ms between attempts). Concurrent
 refreshes serialize. Cancellation cleans up the waiter and releases the lock.
-No polling loop or automatic startup command is added. Refresh explicitly
-when opening the schedule; a complete cache is considered stale after one hour.
+After the climate entity is added and the device first returns state, one
+background refresh reads the seven days. It does not block HA startup or send
+DP110, a temperature or a preset command. Removing the entity cancels the task
+and its outstanding waiter. After a failed batch, use the explicit refresh
+action; subsequent reports do not restart it in a loop. A complete cache is
+considered stale after one hour. Refresh explicitly when revisiting the schedule;
+there is no periodic poller.
 
 A refresh atomically publishes a complete week only if all seven reports agree
 on global temperatures. Partial failures retain the previous week as stale.
@@ -79,9 +84,8 @@ corrected from these reports. Hold has no calculated end.
 `euroster_schedule.py` owns decoding, the week cache, response correlation and
 time calculations. `euroster.py` adapts the existing climate through a factory;
 other device profiles retain the normal climate class. The current stage adds
-no DP110 command, preset change or initialization write. Existing program
-number writes from main are unchanged in this stage; their verified-write
-replacement belongs to the following PR.
+no automatic DP110, temperature or preset write. Program number writes use
+the verified-write operations below.
 
 Run the root AGENTS.md checks and `uv run pytest`. Tests cover the supplied
 captures, noon slot evidence, invalid responses, sequential/concurrent IO,
@@ -160,3 +164,36 @@ partial copy, cancellation, shared climate/number locking and service dispatch.
 All transport scenarios are synthetic; this code has not been installed or
 used to write a real thermostat. Read-only hardware comparison precedes any
 separately approved live-write test, per the requested staged rollout.
+
+## Fork releases and installation consistency
+
+A merged PR and an installed HACS release are separate states. The old fork
+workflow reused the latest upstream tag and skipped publication whenever that
+release already existed. Consequently a successful workflow could leave HACS
+installing code from before the program-temperature and weekly-schedule PRs.
+
+The fork now publishes `YYYY.M.patch.N`, where `N` is the number of commits
+reachable from the release commit but not from the included upstream release.
+For a fixed upstream base, later descendant commits increase `N`; a new upstream
+version starts a new base. Existing upstream/fork tags remain unchanged. Only
+the current `main` tip is published, and reruns leave an existing release intact.
+
+HACS downloads the release asset `tuya_local.zip`. Its root contains the
+integration files (including the Euroster adapter, reader, services and profile).
+The archive is built from tracked Git objects at the release SHA, not from the
+working directory. Its manifest has the fork version; the source manifest keeps
+the upstream version for future merges. `fork_release.json` records the source
+commit, upstream tag and installed-file SHA256 checksums. Rebuilding the same
+source produces identical bytes. No private runtime files are packaged.
+
+After merging this PR, check that Release fork publishes the new asset, then
+separately approve/install that release in HACS and restart HA. Check the installed
+manifest and `fork_release.json`, the existing day/night entities, `heat` mode,
+and a ready seven-day `weekly_schedule`. This PR does not perform installation,
+restart, thermostat writes or physical validation. Keep the pre-installation
+runtime backup for rollback. Legacy releases without the ZIP asset are not
+backfilled; restoring an older deployment can require that backup or its source
+archive rather than selecting an old assetless release with ZIP mode enabled.
+
+HACS documents [release ZIP metadata](https://www.hacs.dev/docs/publish/start/)
+and [release selection](https://www.hacs.dev/docs/publish/integration/).

@@ -9,8 +9,13 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: release-fork
+  cancel-in-progress: false
+
 jobs:
   release:
+    if: github.repository == 'BartoszWu/tuya-local' && github.ref == 'refs/heads/main'
     runs-on: ubuntu-latest
 
     steps:
@@ -32,6 +37,7 @@ jobs:
           git fetch upstream "refs/tags/$TAG"
 
           UPSTREAM_SHA="$(git rev-list -n 1 FETCH_HEAD)"
+          echo "sha=$UPSTREAM_SHA" >> "$GITHUB_OUTPUT"
 
           if git merge-base --is-ancestor "$UPSTREAM_SHA" HEAD; then
             echo "included=true" >> "$GITHUB_OUTPUT"
@@ -43,15 +49,29 @@ jobs:
         if: steps.upstream.outputs.included == 'true'
         env:
           GH_TOKEN: ${{ github.token }}
-          TAG: ${{ steps.upstream.outputs.tag }}
+          UPSTREAM_TAG: ${{ steps.upstream.outputs.tag }}
+          UPSTREAM_SHA: ${{ steps.upstream.outputs.sha }}
         run: |
-          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
-            echo "Release $TAG already exists. Nothing to do."
+          MAIN_SHA="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [ "$MAIN_SHA" != "$GITHUB_SHA" ]; then
+            echo "Main has advanced; let the newer run publish its release."
             exit 0
           fi
 
-          gh release create "$TAG" \
+          python3 "$GITHUB_WORKSPACE/util/fork_release.py" \
+            --upstream-tag "$UPSTREAM_TAG" \
+            --upstream-sha "$UPSTREAM_SHA" \
+            --source-commit "$GITHUB_SHA"
+          TAG="$(cat dist/version.txt)"
+
+          if gh release view "$TAG" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1; then
+            echo "Immutable fork release $TAG already exists. Nothing to do."
+            exit 0
+          fi
+
+          gh release create "$TAG" dist/tuya_local.zip \
             --repo "$GITHUB_REPOSITORY" \
             --target "$GITHUB_SHA" \
-            --title "$TAG" \
-            --notes "Tuya Local $TAG with Euroster 4040 support."
+            --latest \
+            --title "Tuya Local $TAG (Euroster fork)" \
+            --notes "Upstream $UPSTREAM_TAG with fork fixes at $GITHUB_SHA. Install tuya_local.zip through HACS; its manifest version is $TAG. Includes Euroster program temperatures, weekly schedule reads and verified writes. Existing upstream tags are unchanged."

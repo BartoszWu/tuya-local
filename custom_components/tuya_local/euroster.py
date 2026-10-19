@@ -1,5 +1,8 @@
 """Small Euroster adapter; the standard climate entity and IDs remain intact."""
 
+import asyncio
+import logging
+from contextlib import suppress
 from datetime import UTC, datetime
 
 from homeassistant.exceptions import HomeAssistantError
@@ -8,16 +11,59 @@ from .climate import TuyaLocalClimate
 from .euroster_schedule import schedule_for_device
 from .number import TuyaLocalNumber
 
+_LOGGER = logging.getLogger(__name__)
+
 
 class EurosterClimate(TuyaLocalClimate):
-    """Expose an explicitly refreshed week on the existing climate entity."""
+    """Expose the device week on the existing climate entity."""
 
     def __init__(self, device, config):
         super().__init__(device, config)
         self.schedule = schedule_for_device(device)
+        self._schedule_entity_added = False
+        self._initial_schedule_started = False
+        self._initial_schedule_task = None
+
+    async def async_added_to_hass(self):
+        await super().async_added_to_hass()
+        self._schedule_entity_added = True
+        self._start_initial_schedule_read()
+
+    async def async_will_remove_from_hass(self):
+        self._schedule_entity_added = False
+        if self._initial_schedule_task is not None:
+            self._initial_schedule_task.cancel()
+            with suppress(asyncio.CancelledError):
+                await self._initial_schedule_task
+        await super().async_will_remove_from_hass()
+
+    def _start_initial_schedule_read(self):
+        if (
+            self._schedule_entity_added
+            and not self._initial_schedule_started
+            and self._device.has_returned_state
+        ):
+            self._initial_schedule_started = True
+            # Never await replies inside on_receive: the receive loop must stay
+            # free to deliver DP104 responses to this shared, serialized reader.
+            self._initial_schedule_task = self.hass.async_create_background_task(
+                self._async_read_initial_schedule(),
+                "tuya_local initial Euroster schedule",
+            )
+
+    async def _async_read_initial_schedule(self):
+        try:
+            await self.async_refresh_schedule()
+        except HomeAssistantError:
+            # The reader already has bounded retries. Avoid starting another
+            # batch on every report; the explicit refresh action can retry.
+            _LOGGER.warning(
+                "Initial Euroster schedule read failed; use tuya_local.refresh_schedule to retry"
+            )
 
     def on_receive(self, dps, full_poll):
         self.schedule.receive(dps)
+        self._start_initial_schedule_read()
 
     @property
     def extra_state_attributes(self):

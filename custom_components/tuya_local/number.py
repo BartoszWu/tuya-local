@@ -28,8 +28,20 @@ async def async_setup_entry(hass, config_entry, async_add_entities):
         async_add_entities,
         config,
         "number",
-        TuyaLocalNumber,
+        number_for_config,
     )
+
+
+def number_for_config(device, config):
+    """Use verified schedule writes only for the Euroster's two global levels."""
+    if (
+        config._device.config_type == "euroster4040_thermostat"
+        and config.translation_key in ("day_temperature", "night_temperature")
+    ):
+        from .euroster import EurosterProgramTemperature
+
+        return EurosterProgramTemperature(device, config)
+    return TuyaLocalNumber(device, config)
 
 
 class TuyaLocalNumber(TuyaLocalEntity, NumberEntity):

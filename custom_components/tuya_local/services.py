@@ -29,6 +29,15 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup_services(hass: HomeAssistant, entities: list[str]):
     """Set up services for the Tuya Local integration."""
+    if "climate" in entities:
+        service.async_register_platform_entity_service(
+            hass,
+            DOMAIN,
+            "refresh_schedule",
+            entity_domain="climate",
+            schema={},
+            func=async_handle_refresh_schedule,
+        )
     if "remote" in entities:
         service.async_register_platform_entity_service(
             hass,
@@ -78,3 +87,12 @@ async def async_handle_send_ir_command(entity, call: ServiceCall):
             entity._flag_storage.async_delay_save(
                 lambda: entity._flags, FLAG_SAVE_DELAY
             )
+
+
+async def async_handle_refresh_schedule(entity, call: ServiceCall):
+    """Read the week from a supported thermostat, never from a guessed DP."""
+    from .euroster import EurosterClimate
+
+    if not isinstance(entity, EurosterClimate):
+        raise ValueError("Schedule is supported only by the Euroster 4040 profile")
+    await entity.async_refresh_schedule()

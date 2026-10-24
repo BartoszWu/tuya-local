@@ -213,6 +213,13 @@
                     "off": "OK",
                     "on": "Lav"
                 }
+            },
+            "water_flow": {
+                "name": "Vannstrøm",
+                "state": {
+                    "off": "Blokkert",
+                    "on": "Normal"
+                }
             }
         },
         "button": {
@@ -689,6 +696,7 @@
                     "english_child": "English (Child)",
                     "french": "Français",
                     "german": "Deutsch",
+                    "hungarian": "Magyar",
                     "italian": "Italiano",
                     "japanese": "日本語",
                     "korean": "한국어",
@@ -703,7 +711,8 @@
                     "romanian": "Română",
                     "slovak": "Slovenčina",
                     "thai": "ไทย",
-                    "vietnamese": "Tiếng Việt"
+                    "vietnamese": "Tiếng Việt",
+                    "off": "Av"
                 }
             },
             "light_mode": {
@@ -714,7 +723,16 @@
                     "state": "Tilstand",
                     "locator": "Lokaliser",
                     "auto": "Auto",
-                    "flash": "Blinke"
+                    "flash": "Blinke",
+                    "breathe": "Puste",
+                    "random": "Tilfeldig",
+                    "color": "Farge",
+                    "favorite": "Favoritt",
+                    "multi_color": "Flerfarget",
+                    "custom": "Egendefinert",
+                    "mode_1": "Modus 1",
+                    "mode_2": "Modus 2",
+                    "mode_3": "Modus 3"
                 }
             },
             "mopping": {
@@ -804,6 +822,7 @@
                     "cancel": "Avbryt",
                     "continuous": "Kontinuerlig",
                     "custom": "Egendefinert",
+                    "immediate": "Umiddelbar",
                     "5s": "5 sekunder",
                     "10s": "10 sekunder",
                     "15s": "15 sekunder",
@@ -880,7 +899,10 @@
                     "10d": "10 dager",
                     "30d": "30 dager",
                     "60d": "60 dager",
+                    "80d": "80 dager",
                     "90d": "90 dager",
+                    "100d": "100 dager",
+                    "120d": "120 dager",
                     "160d": "160 dager",
                     "365d": "365 dager"
                 }

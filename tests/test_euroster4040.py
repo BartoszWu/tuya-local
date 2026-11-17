@@ -133,14 +133,16 @@ async def test_temperature_routes_by_report(mocker, flags, dp):
         await climate.async_set_temperature(temperature=22.0)
 
 
-async def test_program_temperature_never_starts_override(mocker):
+async def test_program_temperature_starts_temporary_override(mocker):
     device, climate, _ = thermostat(mocker)
     device.async_set_properties = mocker.AsyncMock()
     report_preset(device, 0x20)
-    with pytest.raises(ValueError, match="No safe write mapping"):
-        await climate.async_set_temperature(temperature=22.0)
-    device.async_set_properties.assert_not_called()
-    assert climate.preset_mode == "program"
+    await climate.async_set_temperature(temperature=22.0)
+    device.async_set_properties.assert_awaited_once_with({"109": "FgA="})
+    assert climate.preset_mode == "program"  # Wait for the device report.
+    report_preset(device, 0x30)
+    assert climate.preset_mode == "temporary_override"
+    assert climate.target_temperature == 22.0
 
 
 @pytest.mark.parametrize("flags,current", PRESETS)

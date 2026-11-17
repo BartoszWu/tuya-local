@@ -66,6 +66,8 @@ entities:
           - value_mirror: reported_temperature
             step: 0.1
         write_mapping:
+          - when: {preset_mode: program}
+            target: temporary_command
           - when: {preset_mode: temporary_override}
             target: temporary_command
           - when: {preset_mode: hold}

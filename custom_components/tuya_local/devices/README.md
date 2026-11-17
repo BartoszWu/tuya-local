@@ -960,8 +960,9 @@ room temperature, preset and HVAC action; it need not change after editing an
 inactive program temperature. These app captures establish the temperature
 fields; DP110 writes over LAN still require hardware verification.
 
-In Program, a plain climate temperature command is rejected rather than
-starting an override or guessing which program temperature to edit. Use the
-day/night number entities. In Temporary override and Hold, temperature writes
-continue to use DP109 and DP108 respectively, retaining the reported preset.
-Explicitly choosing a different preset remains supported.
+In Program, a plain climate temperature command starts Temporary override
+with the requested temperature via DP109. This does not edit the program
+temperatures; use the day/night number entities for those edits. In Temporary
+override and Hold, temperature writes continue to use DP109 and DP108
+respectively, retaining the reported preset. Explicitly choosing a different
+preset remains supported.

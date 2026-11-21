@@ -93,6 +93,7 @@
 - Sichler ZX-7655/ZX-7656 hybrid infrared convection heater
 - SolAire Vitra S2 panel heater
 - Sonnenkonig Eco 700 IR panel heater (probably also other Eco/Elegance series heaters)
+- Starlight EF-STAR30 electric fireplace
 - Sunred Smart Triangle Dark patio wall heater
 - Taurus Agadir Connect oil column heaters
 - Tecxerllon 1500W panel heater
@@ -313,8 +314,7 @@
 - Ettroit LN4102 thermostat
 - Eurom WiFi thermostat
 - Euroster 4040 Smart thermostat
-- EZAIoT R9Lite thermostat
-- EZAIoT thermostat smartplug
+- EZAIoT thermostat smartplugs (including Lite and R9Lite models)
 - Fercofloor FT2C10V fan coil thermostat
 - Garza Aspen and (unknown model) thermostats
 - HaoLeSi Mini thermostat
@@ -449,8 +449,8 @@
 - Lexy F501 fan
 - Ligency E26 socket ceiling fan with RGBCW light
 - Living Comfort LC310S twin window fan
+- Lucci Air Radar Connect and Aria DC ceiling fans
 - Lucci Connect Wi-Fi fan remote
-- Lucci Air Radar Connect ceiling fan
 - Lumary A1, B2, C2 ceiling fans with lights
 - Magnovent Cefiro ceiling fan with lights
 - Mantra ceiling fan with light
@@ -781,6 +781,7 @@
 - AmperePoint Q series EV chargers
 - Arlec/Deta EV200D-HA EV charger
 - Conow CBE2000 Pro solar battery
+- Dabbsson DBS2300 portable power station
 - dé Wall EV charger (3-phase 22Kw)
 - Demuda 4048/6048 MPPT solar charge controller
 - Dowell iOneAIO EV charger
